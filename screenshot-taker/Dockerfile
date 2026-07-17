@@ -17,6 +17,8 @@ RUN echo "Python version:" \
  && pip --version \
  && echo "Installing dependencies:" \
  && pip install -r requirements.txt \
+ && echo "Installing Patchright's Chromium build:" \
+ && patchright install chromium --with-deps \
  && echo "All installed Python packages:" \
  && pip freeze
 

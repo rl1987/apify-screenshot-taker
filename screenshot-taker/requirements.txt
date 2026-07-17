@@ -2,5 +2,7 @@
 # https://pip.pypa.io/en/latest/reference/requirements-file-format/
 
 apify >= 3.0.0, < 4.0.0
-crawlee[playwright] >= 1.7.0
+playwright >= 1.47.0
+playwright-stealth >= 1.0.6
+patchright >= 1.47.0
 camoufox[geoip] >= 0.4.5, < 1.0.0

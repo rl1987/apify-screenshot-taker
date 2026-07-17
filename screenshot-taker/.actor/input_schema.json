@@ -1,19 +1,84 @@
 {
     "$schema": "https://apify.com/schemas/v1/input.ide.json",
-    "title": "Python Crawlee Playwright with Camoufox Scraper",
+    "title": "Screenshot Taker",
     "type": "object",
     "schemaVersion": 1,
     "properties": {
         "start_urls": {
-            "title": "Start URLs",
+            "title": "URLs to screenshot",
             "type": "array",
-            "description": "URLs to start with",
+            "description": "List of URLs to capture a screenshot of.",
             "prefill": [
                 {
                     "url": "https://apify.com"
                 }
             ],
             "editor": "requestListSources"
+        },
+        "stealth_engine": {
+            "title": "Stealth browser engine",
+            "type": "string",
+            "description": "Which browser automation / anti-detection engine to use for loading the page.",
+            "editor": "select",
+            "enum": ["playwright", "playwright_stealth", "patchright", "camoufox"],
+            "enumTitles": [
+                "Playwright (plain Chromium, no stealth)",
+                "Playwright + playwright-stealth",
+                "Patchright (undetected Chromium patch)",
+                "Camoufox (hardened Firefox fork)"
+            ],
+            "default": "camoufox"
+        },
+        "full_page": {
+            "title": "Full page screenshot",
+            "type": "boolean",
+            "description": "Capture the full scrollable page instead of just the viewport.",
+            "default": true
+        },
+        "viewport_width": {
+            "title": "Viewport width",
+            "type": "integer",
+            "description": "Browser viewport width in pixels.",
+            "default": 1920,
+            "minimum": 320,
+            "maximum": 3840
+        },
+        "viewport_height": {
+            "title": "Viewport height",
+            "type": "integer",
+            "description": "Browser viewport height in pixels.",
+            "default": 1080,
+            "minimum": 240,
+            "maximum": 2160
+        },
+        "wait_for_selector": {
+            "title": "Wait for CSS selector (optional)",
+            "type": "string",
+            "description": "If set, wait for this CSS selector to appear before taking the screenshot.",
+            "editor": "textfield"
+        },
+        "wait_after_load_ms": {
+            "title": "Extra wait after page load (ms)",
+            "type": "integer",
+            "description": "Additional delay in milliseconds after the page has loaded, useful for letting animations/lazy content settle.",
+            "default": 0,
+            "minimum": 0,
+            "maximum": 60000
+        },
+        "navigation_timeout_secs": {
+            "title": "Navigation timeout (seconds)",
+            "type": "integer",
+            "description": "Max time to wait for the page to load.",
+            "default": 60,
+            "minimum": 5,
+            "maximum": 300
+        },
+        "proxyConfiguration": {
+            "title": "Proxy configuration",
+            "type": "object",
+            "description": "Optional proxy settings (Apify Proxy or custom proxies). Not used by Camoufox, which manages its own network stack.",
+            "editor": "proxy",
+            "default": { "useApifyProxy": false }
         }
     },
     "required": ["start_urls"]

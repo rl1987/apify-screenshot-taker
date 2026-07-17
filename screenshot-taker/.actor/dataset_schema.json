@@ -6,30 +6,38 @@
         "overview": {
             "title": "Overview",
             "transformation": {
-                "fields": ["title", "url", "h1s", "h2s", "h3s"]
+                "fields": ["url", "stealthEngine", "title", "screenshotUrl", "statusCode", "loadedAt", "error"]
             },
             "display": {
                 "component": "table",
                 "properties": {
-                    "title": {
-                        "label": "Title",
-                        "format": "text"
-                    },
                     "url": {
                         "label": "URL",
                         "format": "link"
                     },
-                    "h1s": {
-                        "label": "H1s",
-                        "format": "array"
+                    "stealthEngine": {
+                        "label": "Stealth engine",
+                        "format": "text"
                     },
-                    "h2s": {
-                        "label": "H2s",
-                        "format": "array"
+                    "title": {
+                        "label": "Page title",
+                        "format": "text"
                     },
-                    "h3s": {
-                        "label": "H3s",
-                        "format": "array"
+                    "screenshotUrl": {
+                        "label": "Screenshot",
+                        "format": "image"
+                    },
+                    "statusCode": {
+                        "label": "Status code",
+                        "format": "number"
+                    },
+                    "loadedAt": {
+                        "label": "Loaded at",
+                        "format": "date"
+                    },
+                    "error": {
+                        "label": "Error",
+                        "format": "text"
                     }
                 }
             }

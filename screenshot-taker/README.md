@@ -1,71 +1,61 @@
-## Python Crawlee with Playwright template with Camoufox
+Screenshot Taker takes full-page or viewport screenshots of any list of URLs, letting you pick which **stealth browser engine** drives the page: plain [Playwright](https://playwright.dev/python/), [playwright-stealth](https://github.com/AtuboDad/playwright_stealth), [Patchright](https://github.com/kaliiiiiiiiii-vinyzu/patchright-python) (an undetected Chromium patch), or [Camoufox](https://camoufox.com/) (a hardened Firefox fork). Give it a list of start URLs, pick an engine, and get PNG screenshots back in your dataset - no code required. Runs on the [Apify platform](https://apify.com), so you get scheduling, an API, integrations, and proxy rotation for free.
 
-<!-- This is an Apify template readme -->
+## Why use Screenshot Taker?
 
-A template for [web scraping](https://apify.com/web-scraping) data from websites starting from provided URLs using Python. The starting URLs are passed through the Actor's input schema, defined by the [input schema](https://docs.apify.com/platform/actors/development/input-schema). The template uses [Crawlee for Python](https://crawlee.dev/python) for efficient web crawling, making requests via headless browser managed by [Playwright](https://playwright.dev/python/), and handling each request through a user-defined handler that uses [Playwright](https://playwright.dev/python/) API to extract data from the page. Enqueued URLs are managed in the [request queue](https://crawlee.dev/python/api/class/RequestQueue), and the extracted data is saved in a [dataset](https://crawlee.dev/python/api/class/Dataset) for easy access. It uses [Camoufox](https://github.com/daijro/camoufox) - a stealthy fork of Firefox - preinstalled. Note that Camoufox might consume more resources than the default Playwright-bundled Chromium or Firefox.
+Sites with bot detection (Cloudflare, DataDome, PerimeterX, etc.) block plain headless browsers. Rather than committing to one anti-detection stack, this Actor lets you **A/B test stealth engines per site** - some targets need Camoufox's Firefox fingerprint, others are fine with Patchright's patched Chromium, and some don't need stealth at all. Common uses: visual regression testing, monitoring landing pages, archiving pages, building thumbnail previews, or verifying a page renders correctly behind a proxy.
 
-## Included features
+## How to use Screenshot Taker
 
-- **[Apify SDK](https://docs.apify.com/sdk/python/)** - a toolkit for building Apify [Actors](https://apify.com/actors) in Python.
-- **[Crawlee for Python](https://crawlee.dev/python/)** - a web scraping and browser automation library.
-- **[Input schema](https://docs.apify.com/platform/actors/development/input-schema)** - define and validate a schema for your Actor's input.
-- **[Request queue](https://crawlee.dev/python/api/class/RequestQueue)** - manage the URLs you want to scrape in a queue.
-- **[Dataset](https://crawlee.dev/python/api/class/Dataset)** - store and access structured data extracted from web pages.
-- **[Playwright](https://playwright.dev/python/)** - a library for managing headless browsers.
-- **[Camoufox](https://camoufox.com/)** - a stealthy fork of Firefox.
+1. Open the Actor and go to the **Input** tab.
+2. Add one or more **URLs to screenshot**.
+3. Pick a **Stealth browser engine** (defaults to Camoufox).
+4. Optionally tune the viewport size, full-page capture, a CSS selector to wait for, extra wait time, and proxy settings.
+5. Click **Start** and check the **Output** tab once the run finishes.
 
-## Resources
+## Input
 
-- [Video introduction to Python SDK](https://www.youtube.com/watch?v=C8DmvJQS3jk)
-- [Webinar introducing to Crawlee for Python](https://www.youtube.com/live/ip8Ii0eLfRY)
-- [Apify Python SDK documentation](https://docs.apify.com/sdk/python/)
-- [Crawlee for Python documentation](https://crawlee.dev/python/docs/quick-start)
-- [Python tutorials in Academy](https://docs.apify.com/academy/python)
-- [Integration with Make, GitHub, Zapier, Google Drive, and other apps](https://apify.com/integrations)
-- [Video guide on getting scraped data using Apify API](https://www.youtube.com/watch?v=ViYYDHSBAKM)
-- A short guide on how to build web scrapers using code templates:
+| Field | Description |
+|---|---|
+| `start_urls` | List of URLs to screenshot. |
+| `stealth_engine` | One of `playwright`, `playwright_stealth`, `patchright`, `camoufox`. |
+| `full_page` | Capture the full scrollable page instead of just the viewport. |
+| `viewport_width` / `viewport_height` | Browser viewport size in pixels. |
+| `wait_for_selector` | Optional CSS selector to wait for before capturing. |
+| `wait_after_load_ms` | Extra delay after page load, for animations/lazy content. |
+| `navigation_timeout_secs` | Max time to wait for the page to load. |
+| `proxyConfiguration` | Optional Apify Proxy / custom proxy settings. Ignored for Camoufox, which manages its own network stack. |
 
-[web scraper template](https://www.youtube.com/watch?v=u-i-Korzf8w)
+See the Input tab for the full schema.
 
+## Output
 
-## Getting started
+Each screenshot is pushed as one dataset item:
 
-For complete information [see this article](https://docs.apify.com/platform/actors/development#build-actor-locally). To run the Actor use the following command:
-
-```bash
-apify run
+```json
+{
+    "url": "https://apify.com",
+    "stealthEngine": "camoufox",
+    "title": "Apify: Full-stack web scraping and data extraction platform",
+    "screenshotUrl": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA...",
+    "statusCode": 200,
+    "loadedAt": "2026-07-17T12:00:00+00:00",
+    "error": null
+}
 ```
 
-## Deploy to Apify
+`screenshotUrl` is a `data:image/png;base64,...` URI so the image is embedded directly in the item - no separate key-value store lookup needed. You can download the dataset in JSON, HTML, CSV, or Excel format from the Output tab. If a URL fails to load, `error` is populated and the other fields are left `null`.
 
-### Connect Git repository to Apify
+## Pricing
 
-If you've created a Git repository for the project, you can easily connect to Apify:
+Screenshot Taker is pay-per-usage-of-your-own compute (Apify's default pricing model) - you pay for the compute units the run consumes. Camoufox and Patchright are heavier than plain Playwright, so expect slightly higher compute usage when using those engines. A single screenshot typically takes a few seconds; check the Apify [pricing page](https://apify.com/pricing) for current compute unit rates and free-tier limits.
 
-1. Go to [Actor creation page](https://console.apify.com/actors/new)
-2. Click on **Link Git Repository** button
+## Tips
 
-### Push project on your local machine to Apify
+- Use `playwright` (no stealth) for sites without bot protection - it's the fastest and cheapest option.
+- Use `camoufox` or `patchright` for sites that fingerprint headless Chromium.
+- Increase `navigation_timeout_secs` for slow-loading pages, and use `wait_for_selector` or `wait_after_load_ms` for pages that render content asynchronously.
+- Camoufox ignores `proxyConfiguration` - it manages its own network stack.
 
-You can also deploy the project on your local machine to Apify without the need for the Git repository.
+## FAQ, disclaimers, and support
 
-1. Log in to Apify. You will need to provide your [Apify API Token](https://console.apify.com/account/integrations) to complete this action.
-
-    ```bash
-    apify login
-    ```
-
-2. Deploy your Actor. This command will deploy and build the Actor on the Apify Platform. You can find your newly created Actor under [Actors -> My Actors](https://console.apify.com/actors?tab=my).
-
-    ```bash
-    apify push
-    ```
-
-## Documentation reference
-
-To learn more about Apify and Actors, take a look at the following resources:
-
-- [Apify SDK for JavaScript documentation](https://docs.apify.com/sdk/js)
-- [Apify SDK for Python documentation](https://docs.apify.com/sdk/python)
-- [Apify Platform documentation](https://docs.apify.com/platform)
-- [Join our developer community on Discord](https://discord.com/invite/jyEM2PRvMU)
+Only screenshot pages you have the right to access, respecting each site's Terms of Service and `robots.txt`. If you hit a bug or want a feature, open an issue in the Actor's **Issues** tab. Need a custom scraping or automation solution? Reach out via [Apify Discord](https://discord.com/invite/jyEM2PRvMU) or the Apify [Actor development](https://apify.com/actors/development) services.
