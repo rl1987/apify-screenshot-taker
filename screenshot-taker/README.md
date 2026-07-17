@@ -36,14 +36,14 @@ Each screenshot is pushed as one dataset item:
     "url": "https://apify.com",
     "stealthEngine": "camoufox",
     "title": "Apify: Full-stack web scraping and data extraction platform",
-    "screenshotUrl": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA...",
+    "screenshotUrl": "https://api.apify.com/v2/key-value-stores/.../records/screenshot-0000",
     "statusCode": 200,
     "loadedAt": "2026-07-17T12:00:00+00:00",
     "error": null
 }
 ```
 
-`screenshotUrl` is a `data:image/png;base64,...` URI so the image is embedded directly in the item - no separate key-value store lookup needed. You can download the dataset in JSON, HTML, CSV, or Excel format from the Output tab. If a URL fails to load, `error` is populated and the other fields are left `null`.
+The PNG itself is saved to the run's key-value store; `screenshotUrl` is its public URL (full-page screenshots of long pages can be many megabytes, well past the dataset item size limit, so they aren't inlined). You can download the dataset in JSON, HTML, CSV, or Excel format from the Output tab. If a URL fails to load, `error` is populated and the other fields are left `null`.
 
 ## Pricing
 

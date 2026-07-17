@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import base64
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from urllib.parse import urlparse
@@ -138,9 +137,11 @@ async def main() -> None:
 
         Actor.log.info(f'Using stealth engine: {stealth_engine}')
 
+        key_value_store = await Actor.open_key_value_store()
+
         browser_factory = ENGINE_FACTORIES[stealth_engine]
         async with browser_factory(headless=True, proxy=proxy, viewport=viewport) as browser:
-            for url in start_urls:
+            for index, url in enumerate(start_urls):
                 Actor.log.info(f'Screenshotting {url}...')
                 result = {
                     'url': url,
@@ -183,7 +184,12 @@ async def main() -> None:
 
                     result['title'] = await page.title()
                     screenshot_bytes = await page.screenshot(full_page=full_page)
-                    result['screenshotUrl'] = f'data:image/png;base64,{base64.b64encode(screenshot_bytes).decode()}'
+
+                    # Store in the key-value store rather than inlining base64 in the dataset item:
+                    # full-page screenshots of long pages can exceed the 9 MB dataset item size limit.
+                    key = f'screenshot-{index:04d}'
+                    await key_value_store.set_value(key, screenshot_bytes, content_type='image/png')
+                    result['screenshotUrl'] = await key_value_store.get_public_url(key)
                 except Exception as exc:  # noqa: BLE001 - keep going with the next URL, record the failure
                     Actor.log.exception(f'Failed to screenshot {url}')
                     result['error'] = str(exc)
