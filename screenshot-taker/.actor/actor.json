@@ -10,6 +10,7 @@
 		"templateId": "python-crawlee-playwright-camoufox",
 		"generatedBy": "Claude Code with Claude Sonnet 5"
 	},
+	"defaultMemoryMbytes": 4096,
 	"inputSchema": "./input_schema.json",
 	"outputSchema": "./output_schema.json",
 	"storages": {
