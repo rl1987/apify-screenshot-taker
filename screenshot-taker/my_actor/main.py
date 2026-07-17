@@ -137,13 +137,18 @@ async def main() -> None:
                     'error': None,
                 }
 
-                # Camoufox bakes its viewport into the launch-time `window` option and its
-                # default context already reflects that; creating an extra browser.new_context()
-                # (rather than using camoufox's own context machinery) can crash on some builds.
+                # Any Playwright call that sets a viewport at browser/context creation time
+                # (new_context(viewport=...), or plain new_page(), which implicitly sets
+                # Playwright's default viewport) trips a Juggler protocol mismatch on some
+                # Camoufox builds (Browser.setDefaultViewport / unknown "isMobile" field).
+                # Create the page with no_viewport, then resize via the page-level
+                # set_viewport_size RPC, which goes through a different, working code path.
                 context = None
+                page = None
                 try:
                     if stealth_engine == 'camoufox':
-                        page = await browser.new_page()
+                        page = await browser.new_page(no_viewport=True)
+                        await page.set_viewport_size(viewport)
                     else:
                         context = await browser.new_context(viewport=viewport)
                         page = await context.new_page()
@@ -166,7 +171,7 @@ async def main() -> None:
                 finally:
                     if context is not None:
                         await context.close()
-                    elif stealth_engine == 'camoufox':
+                    elif page is not None:
                         await page.close()
 
                 await Actor.push_data(result)
