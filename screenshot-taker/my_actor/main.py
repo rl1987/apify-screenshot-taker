@@ -7,14 +7,26 @@ from urllib.parse import urlparse
 from apify import Actor
 
 
-async def _close_quietly(closeable) -> None:
-    """Best-effort close: if the browser process already died (e.g. crashed/OOM),
-    close() itself raises, which would otherwise blow up actor teardown even though
-    the results already pushed to the dataset are fine."""
+def _is_dead_connection_error(exc: Exception) -> bool:
+    """Detect the Firefox/Camoufox driver crashing mid-run (e.g. a Node-side uncaught
+    exception handling a page error event). Once this happens, the whole Playwright
+    connection is dead and every further call on it fails the same way - the browser
+    has to be relaunched before continuing with the next URL."""
+    return 'Connection closed' in str(exc)
+
+
+async def _run_quietly(coro, *, what: str) -> None:
+    """Best-effort cleanup: if the browser/driver process already died (crashed, OOM,
+    an uncaught exception in the driver), close()/stop() calls raise, which would
+    otherwise blow up actor teardown even though results already pushed are fine."""
     try:
-        await closeable.close()
+        await coro
     except Exception as exc:  # noqa: BLE001
-        Actor.log.warning(f'Ignoring error while closing {closeable!r}: {exc!r}')
+        Actor.log.warning(f'Ignoring error while {what}: {exc!r}')
+
+
+async def _close_quietly(closeable) -> None:
+    await _run_quietly(closeable.close(), what=f'closing {closeable!r}')
 
 
 @asynccontextmanager
@@ -138,9 +150,30 @@ async def main() -> None:
         Actor.log.info(f'Using stealth engine: {stealth_engine}')
 
         key_value_store = await Actor.open_key_value_store()
-
         browser_factory = ENGINE_FACTORIES[stealth_engine]
-        async with browser_factory(headless=True, proxy=proxy, viewport=viewport) as browser:
+
+        # Managed manually (rather than a single `async with ... as browser:` wrapping the
+        # whole loop) so a dead driver connection can be torn down and relaunched mid-run
+        # instead of aborting every remaining URL.
+        browser_cm = None
+        browser = None
+
+        async def start_browser():
+            nonlocal browser_cm, browser
+            browser_cm = browser_factory(headless=True, proxy=proxy, viewport=viewport)
+            browser = await browser_cm.__aenter__()
+
+        async def stop_browser():
+            nonlocal browser_cm, browser
+            if browser_cm is not None:
+                # Guards both browser.close() and the underlying driver's stop(): if the
+                # driver process already crashed, either can raise "Connection closed".
+                await _run_quietly(browser_cm.__aexit__(None, None, None), what='tearing down the browser')
+            browser_cm = None
+            browser = None
+
+        try:
+            await start_browser()
             for index, url in enumerate(start_urls):
                 Actor.log.info(f'Screenshotting {url}...')
                 result = {
@@ -193,6 +226,10 @@ async def main() -> None:
                 except Exception as exc:  # noqa: BLE001 - keep going with the next URL, record the failure
                     Actor.log.exception(f'Failed to screenshot {url}')
                     result['error'] = str(exc)
+                    if _is_dead_connection_error(exc):
+                        Actor.log.warning('Browser driver connection died; relaunching browser for remaining URLs.')
+                        await stop_browser()
+                        await start_browser()
                 finally:
                     if context is not None:
                         await _close_quietly(context)
@@ -200,3 +237,5 @@ async def main() -> None:
                         await _close_quietly(page)
 
                 await Actor.push_data(result)
+        finally:
+            await stop_browser()
