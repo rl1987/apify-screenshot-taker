@@ -1,8 +1,13 @@
 # Feel free to add your Python dependencies below. For formatting guidelines, see:
 # https://pip.pypa.io/en/latest/reference/requirements-file-format/
 
+# playwright and camoufox are pinned to exactly what the
+# apify/actor-python-playwright-camoufox:3.14-1.61.0 base image ships.
+# camoufox's pip version selects which Firefox/Juggler protocol build it fetches;
+# letting it drift ahead of the playwright driver baked into the image breaks the
+# protocol (e.g. Page.setViewportSize rejecting fields the browser build doesn't know).
 apify >= 3.0.0, < 4.0.0
-playwright >= 1.47.0
+playwright == 1.61.0
 playwright-stealth >= 1.0.6
 patchright >= 1.47.0
-camoufox[geoip] >= 0.4.5, < 1.0.0
+camoufox[geoip] == 0.4.11

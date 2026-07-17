@@ -137,18 +137,22 @@ async def main() -> None:
                     'error': None,
                 }
 
-                # Any Playwright call that sets a viewport at browser/context creation time
-                # (new_context(viewport=...), or plain new_page(), which implicitly sets
-                # Playwright's default viewport) trips a Juggler protocol mismatch on some
-                # Camoufox builds (Browser.setDefaultViewport / unknown "isMobile" field).
-                # Create the page with no_viewport, then resize via the page-level
-                # set_viewport_size RPC, which goes through a different, working code path.
+                # Every Playwright call that sets a viewport (new_context(viewport=...),
+                # plain new_page(), and even the page-level set_viewport_size) trips a
+                # Juggler protocol mismatch on current Camoufox Firefox builds - the browser
+                # rejects fields like "isMobile"/"screenSize" that this Playwright version
+                # sends. Create the page with no_viewport and best-effort resize it; camoufox's
+                # launch-time `window` option still governs the browser's actual window size,
+                # so the screenshot comes out close to (if not always exactly) the requested size.
                 context = None
                 page = None
                 try:
                     if stealth_engine == 'camoufox':
                         page = await browser.new_page(no_viewport=True)
-                        await page.set_viewport_size(viewport)
+                        try:
+                            await page.set_viewport_size(viewport)
+                        except Exception:  # noqa: BLE001 - known upstream protocol mismatch, non-fatal
+                            Actor.log.debug('Camoufox rejected set_viewport_size; using its launch-time window size.')
                     else:
                         context = await browser.new_context(viewport=viewport)
                         page = await context.new_page()
