@@ -8,6 +8,16 @@ from urllib.parse import urlparse
 from apify import Actor
 
 
+async def _close_quietly(closeable) -> None:
+    """Best-effort close: if the browser process already died (e.g. crashed/OOM),
+    close() itself raises, which would otherwise blow up actor teardown even though
+    the results already pushed to the dataset are fine."""
+    try:
+        await closeable.close()
+    except Exception as exc:  # noqa: BLE001
+        Actor.log.warning(f'Ignoring error while closing {closeable!r}: {exc!r}')
+
+
 @asynccontextmanager
 async def playwright_browser(*, headless: bool, proxy: dict | None, viewport: dict | None = None):
     from playwright.async_api import async_playwright
@@ -17,7 +27,7 @@ async def playwright_browser(*, headless: bool, proxy: dict | None, viewport: di
         try:
             yield browser
         finally:
-            await browser.close()
+            await _close_quietly(browser)
 
 
 @asynccontextmanager
@@ -30,7 +40,7 @@ async def playwright_stealth_browser(*, headless: bool, proxy: dict | None, view
         try:
             yield browser
         finally:
-            await browser.close()
+            await _close_quietly(browser)
 
 
 @asynccontextmanager
@@ -42,7 +52,7 @@ async def patchright_browser(*, headless: bool, proxy: dict | None, viewport: di
         try:
             yield browser
         finally:
-            await browser.close()
+            await _close_quietly(browser)
 
 
 @asynccontextmanager
@@ -52,11 +62,16 @@ async def camoufox_browser(*, headless: bool, proxy: dict | None, viewport: dict
     # Viewport is fixed at launch via `window`, not per-context: calling
     # browser.new_context(viewport=...) trips a Juggler protocol mismatch
     # (Browser.setDefaultViewport / unknown "isMobile" field) on some builds.
-    from camoufox.async_api import AsyncCamoufox
+    from camoufox.async_api import AsyncNewBrowser
+    from playwright.async_api import async_playwright
 
     window = (viewport['width'], viewport['height']) if viewport else None
-    async with AsyncCamoufox(headless=headless, proxy=proxy, window=window) as browser:
-        yield browser
+    async with async_playwright() as p:
+        browser = await AsyncNewBrowser(p, headless=headless, proxy=proxy, window=window)
+        try:
+            yield browser
+        finally:
+            await _close_quietly(browser)
 
 
 ENGINE_FACTORIES = {
@@ -174,8 +189,8 @@ async def main() -> None:
                     result['error'] = str(exc)
                 finally:
                     if context is not None:
-                        await context.close()
+                        await _close_quietly(context)
                     elif page is not None:
-                        await page.close()
+                        await _close_quietly(page)
 
                 await Actor.push_data(result)
