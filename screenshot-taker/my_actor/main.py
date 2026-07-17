@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import base64
-import re
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from urllib.parse import urlparse
@@ -10,7 +9,7 @@ from apify import Actor
 
 
 @asynccontextmanager
-async def playwright_browser(*, headless: bool, proxy: dict | None):
+async def playwright_browser(*, headless: bool, proxy: dict | None, viewport: dict | None = None):
     from playwright.async_api import async_playwright
 
     async with async_playwright() as p:
@@ -22,7 +21,7 @@ async def playwright_browser(*, headless: bool, proxy: dict | None):
 
 
 @asynccontextmanager
-async def playwright_stealth_browser(*, headless: bool, proxy: dict | None):
+async def playwright_stealth_browser(*, headless: bool, proxy: dict | None, viewport: dict | None = None):
     from playwright.async_api import async_playwright
     from playwright_stealth import Stealth
 
@@ -35,7 +34,7 @@ async def playwright_stealth_browser(*, headless: bool, proxy: dict | None):
 
 
 @asynccontextmanager
-async def patchright_browser(*, headless: bool, proxy: dict | None):
+async def patchright_browser(*, headless: bool, proxy: dict | None, viewport: dict | None = None):
     from patchright.async_api import async_playwright
 
     async with async_playwright() as p:
@@ -47,12 +46,16 @@ async def patchright_browser(*, headless: bool, proxy: dict | None):
 
 
 @asynccontextmanager
-async def camoufox_browser(*, headless: bool, proxy: dict | None):
+async def camoufox_browser(*, headless: bool, proxy: dict | None, viewport: dict | None = None):
     # Camoufox (Firefox-based) manages its own fingerprinting/network stack;
     # proxy is passed through in the same {'server', 'username', 'password'} shape.
+    # Viewport is fixed at launch via `window`, not per-context: calling
+    # browser.new_context(viewport=...) trips a Juggler protocol mismatch
+    # (Browser.setDefaultViewport / unknown "isMobile" field) on some builds.
     from camoufox.async_api import AsyncCamoufox
 
-    async with AsyncCamoufox(headless=headless, proxy=proxy) as browser:
+    window = (viewport['width'], viewport['height']) if viewport else None
+    async with AsyncCamoufox(headless=headless, proxy=proxy, window=window) as browser:
         yield browser
 
 
@@ -121,7 +124,7 @@ async def main() -> None:
         Actor.log.info(f'Using stealth engine: {stealth_engine}')
 
         browser_factory = ENGINE_FACTORIES[stealth_engine]
-        async with browser_factory(headless=True, proxy=proxy) as browser:
+        async with browser_factory(headless=True, proxy=proxy, viewport=viewport) as browser:
             for url in start_urls:
                 Actor.log.info(f'Screenshotting {url}...')
                 result = {
@@ -134,9 +137,17 @@ async def main() -> None:
                     'error': None,
                 }
 
-                context = await browser.new_context(viewport=viewport)
+                # Camoufox bakes its viewport into the launch-time `window` option and its
+                # default context already reflects that; creating an extra browser.new_context()
+                # (rather than using camoufox's own context machinery) can crash on some builds.
+                context = None
                 try:
-                    page = await context.new_page()
+                    if stealth_engine == 'camoufox':
+                        page = await browser.new_page()
+                    else:
+                        context = await browser.new_context(viewport=viewport)
+                        page = await context.new_page()
+
                     response = await page.goto(url, timeout=navigation_timeout_ms, wait_until='load')
                     result['statusCode'] = response.status if response else None
 
@@ -153,6 +164,9 @@ async def main() -> None:
                     Actor.log.exception(f'Failed to screenshot {url}')
                     result['error'] = str(exc)
                 finally:
-                    await context.close()
+                    if context is not None:
+                        await context.close()
+                    elif stealth_engine == 'camoufox':
+                        await page.close()
 
                 await Actor.push_data(result)
